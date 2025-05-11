@@ -9,6 +9,8 @@
 - [ ]  Try bypassing it by adding `@evil.com` after the original URL, which it is redirecting to
 - [ ]  Try adding the all the bypasses after the actual domain
 - [ ]  Try schemeless URL `//evil.com`,`https://target.com/x//evil.com`
+- [ ]  `redirect?=target.com?evil.com`
+- [ ]  Use parameter Pollution add the same parameter again `/?redirect=http://site.com&redirect=http://evil.com`
 - [ ]  `HTTP:\/\/evil.com`
 - [ ]  `https://target.com/../evil.com`
 - [ ]  If you found Redirect at one place, try to use it on other places also,o like `https://auth.paris.ctfio.com/auth?client_id=1&redirect_url=https://paris.ctfio.com/redirect_url=http://b4grmvykgml36vrniflutx9hn8tzhr5g.oastify.com`
